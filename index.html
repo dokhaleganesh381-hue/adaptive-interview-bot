@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Adaptive Interview Challenge</title>
+<style>
+:root{--bg:#f3f5f2;--surface:#fff;--ink:#17201b;--muted:#5d6b63;--line:#d6ddd8;--accent:#1f6f54;--accent-ink:#fff;--bot:#e6efe9;--me:#17201b;--me-ink:#fff;--warn:#b4532a;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#101512;--surface:#18201b;--ink:#e8efe9;--muted:#9aaba1;--line:#2b3830;--accent:#4fc49a;--accent-ink:#0b1410;--bot:#1f2b24;--me:#e8efe9;--me-ink:#101512;--warn:#e08a5f;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#101512;--surface:#18201b;--ink:#e8efe9;--muted:#9aaba1;--line:#2b3830;--accent:#4fc49a;--accent-ink:#0b1410;--bot:#1f2b24;--me:#e8efe9;--me-ink:#101512;--warn:#e08a5f;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Segoe UI",Roboto,Helvetica,Arial,sans-serif;min-height:100vh}
+.wrap{max-width:760px;margin:0 auto;padding:20px 16px 40px}
+h1{font:700 1.7rem/1.2 Georgia,"Times New Roman",serif;margin:0 0 6px}
+.sub{color:var(--muted);margin:0 0 20px;max-width:60ch}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px}
+label{display:block;font-weight:600;margin:14px 0 6px}
+select,textarea{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px}
+button{font:inherit;font-weight:600;border:0;border-radius:8px;padding:10px 18px;cursor:pointer;background:var(--accent);color:var(--accent-ink)}
+button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+button:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+button:disabled{opacity:.5;cursor:not-allowed}
+.hidden{display:none}
+.bar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px;font-size:.9rem;color:var(--muted)}
+.track{flex:1;min-width:120px;height:8px;background:var(--line);border-radius:4px;overflow:hidden}
+.fill{height:100%;width:0;background:var(--accent);transition:width .3s}
+.lvl{font-weight:700;color:var(--ink)}
+#log{height:min(56vh,480px);overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:86%;padding:10px 14px;border-radius:12px;white-space:pre-wrap;word-wrap:break-word}
+.bot{background:var(--bot);align-self:flex-start;border-bottom-left-radius:3px}
+.me{background:var(--me);color:var(--me-ink);align-self:flex-end;border-bottom-right-radius:3px}
+.fb{font-size:.88rem;color:var(--muted);margin-top:6px}
+.row{display:flex;gap:10px;margin-top:12px;align-items:flex-end}
+.row textarea{resize:vertical;min-height:48px;max-height:160px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:14px 0}
+.stat{border:1px solid var(--line);border-radius:10px;padding:12px}
+.stat b{display:block;font-size:1.5rem}
+table{width:100%;border-collapse:collapse;font-size:.92rem}
+th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
+.wide{overflow-x:auto}
+.tag{font-size:.8rem;color:var(--warn)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Adaptive Interview Challenge</h1>
+  <p class="sub">A mock interview bot that listens to your answers and adjusts. Answer well and the questions get harder; struggle and it eases off so you can build up.</p>
+
+  <section id="setup" class="card">
+    <label for="track">Interview track</label>
+    <select id="track">
+      <option value="web">Web development</option>
+      <option value="python">Python and data</option>
+      <option value="hr">HR and behavioural</option>
+    </select>
+    <label for="count">Number of questions</label>
+    <select id="count"><option>5</option><option selected>6</option><option>8</option></select>
+    <p class="sub" style="margin-top:14px">Tip: write 2 to 4 sentences per answer and use the right technical terms. The bot scores keyword coverage, depth and structure.</p>
+    <button id="start">Start interview</button>
+  </section>
+
+  <section id="chat" class="card hidden" aria-live="polite">
+    <div class="bar">
+      <span>Question <b id="qn">1</b> of <b id="qt">6</b></span>
+      <div class="track" aria-hidden="true"><div class="fill" id="fill"></div></div>
+      <span>Level: <span class="lvl" id="lvl">Easy</span></span>
+    </div>
+    <div id="log"></div>
+    <div class="row">
+      <textarea id="ans" rows="2" placeholder="Type your answer. Enter to send, Shift+Enter for a new line." aria-label="Your answer"></textarea>
+      <button id="send">Send</button>
+    </div>
+    <div class="row" style="margin-top:8px"><button class="ghost" id="hint">Show a hint</button><button class="ghost" id="quit">End early</button></div>
+  </section>
+
+  <section id="report" class="card hidden"></section>
+</div>
+
+<script>
+// ---------- Question bank: level 1 = easy, 2 = medium, 3 = hard ----------
+// k = keyword groups (each group counts once; any synonym matches), hint = nudge
+const BANK = {
+  web: [
+    {l:1,q:"What is the difference between HTML, CSS and JavaScript?",k:[["html","structure","markup"],["css","style","styling"],["javascript","js","behaviour","behavior","interactiv","logic"]],hint:"Think structure, presentation and behaviour."},
+    {l:1,q:"What is the box model in CSS?",k:[["content"],["padding"],["border"],["margin"]],hint:"Four layers wrap every element."},
+    {l:1,q:"What is the difference between a class and an id selector?",k:[["class","reuse","multiple"],["id","unique","once"],["specific","priority"]],hint:"One is reusable, one is unique."},
+    {l:2,q:"Explain the difference between let, const and var.",k:[["scope","block"],["hoist"],["reassign","immutable","constant"],["function"]],hint:"Think scope, hoisting and reassignment."},
+    {l:2,q:"What is a REST API and which HTTP methods does it use?",k:[["get"],["post"],["put","patch"],["delete"],["stateless","resource","json","url","endpoint"]],hint:"CRUD maps onto HTTP verbs."},
+    {l:2,q:"How does responsive design work?",k:[["media quer","@media","breakpoint"],["flexbox","flex","grid"],["viewport"],["relative","percent","rem","em","fluid"]],hint:"Layouts that adapt to screen width."},
+    {l:3,q:"Explain the JavaScript event loop and how promises and async/await fit in.",k:[["call stack","stack"],["queue","task","callback"],["microtask","promise"],["async","await","non-blocking","single-thread","single thread"]],hint:"One thread, a stack, queues and microtasks."},
+    {l:3,q:"How would you improve the performance of a slow web page?",k:[["lazy","defer","async"],["cache","caching","cdn"],["minif","bundle","compress"],["image","webp"],["lighthouse","core web vitals","lcp","render"]],hint:"Think network, assets and rendering."},
+    {l:3,q:"What is CORS and why does it exist?",k:[["origin"],["browser"],["header","access-control"],["security","same-origin","same origin"],["preflight","options"]],hint:"A browser security rule about origins."}
+  ],
+  python: [
+    {l:1,q:"What is the difference between a list and a tuple in Python?",k:[["mutable","change","modif"],["immutable","cannot","fixed"],["tuple"],["list"]],hint:"One can change after creation."},
+    {l:1,q:"What does a dictionary store and how do you read a value?",k:[["key"],["value"],["pair"],["get","[","lookup"]],hint:"Key and value pairs."},
+    {l:1,q:"What is a function and why do we use them?",k:[["reuse","repeat","dry"],["parameter","argument","input"],["return","output"],["def"]],hint:"Reusable blocks of code."},
+    {l:2,q:"What is a list comprehension? Give an example.",k:[["concise","short","one line","compact"],["for"],["list","new list"],["condition","if","filter"],["[","]"]],hint:"A compact way to build lists."},
+    {l:2,q:"Explain how you would clean a messy dataset with pandas.",k:[["missing","null","nan","fillna","dropna"],["duplicate","drop_duplicates"],["type","dtype","astype"],["outlier"],["pandas","dataframe"]],hint:"Missing values, duplicates, types, outliers."},
+    {l:2,q:"What are decorators in Python?",k:[["function"],["wrap","wrapper"],["@"],["modify","extend","add behavior","add behaviour"],["higher-order","higher order","closure"]],hint:"A function that wraps another function."},
+    {l:3,q:"Explain the GIL and how it affects multithreading.",k:[["global interpreter lock","gil"],["thread"],["cpu","bound"],["multiprocessing","process"],["io","asyncio","i/o"]],hint:"Only one thread runs Python bytecode at a time."},
+    {l:3,q:"How do you prevent overfitting in a machine learning model?",k:[["cross","validation"],["regulariz","l1","l2","dropout"],["more data","augment"],["simple","complexity","prune"],["train","test","split"]],hint:"Validate, regularise, simplify, add data."},
+    {l:3,q:"What are generators and when would you use them over lists?",k:[["yield"],["lazy","on demand","one at a time"],["memory"],["iterator","iterate","next"],["large","stream","infinite"]],hint:"Produce values lazily to save memory."}
+  ],
+  hr: [
+    {l:1,q:"Tell me about yourself.",k:[["education","studied","degree","college","university"],["skill","experience","project"],["goal","aim","looking","passion","interest"],["strength"]],hint:"Present, past, future in under a minute."},
+    {l:1,q:"Why do you want this role?",k:[["company","team","organisation","organization"],["skill","fit","match","experience"],["learn","grow","growth"],["contribute","value","impact"]],hint:"Link your skills to what they need."},
+    {l:1,q:"What are your strengths and one weakness?",k:[["strength","good at","strong"],["example","for instance","when i"],["weakness","improve","working on"],["learn","overcome","course","feedback"]],hint:"Be honest and show how you are improving."},
+    {l:2,q:"Describe a time you handled a conflict in a team.",k:[["situation","when","project"],["listen","understand","perspective"],["communicat","talk","discuss"],["resolve","solution","compromise","agree"],["result","outcome","learned"]],hint:"Use STAR: situation, task, action, result."},
+    {l:2,q:"Tell me about a time you failed and what you learned.",k:[["situation","when","project"],["mistake","failed","failure","wrong"],["action","did","fixed","changed"],["learn","lesson"],["result","next time","improved"]],hint:"Own it, then show the lesson."},
+    {l:2,q:"How do you prioritise when you have several deadlines?",k:[["priorit","urgent","important"],["plan","schedule","list","calendar"],["communicat","inform","stakeholder","manager"],["deadline"],["delegate","help","ask"]],hint:"Urgent versus important, plus communication."},
+    {l:3,q:"Describe a time you led a team through a difficult change.",k:[["situation","change","challenge"],["vision","goal","direction","plan"],["communicat","listen","feedback"],["motivat","support","trust","empower"],["result","outcome","metric","%","delivered"]],hint:"Lead with context, show actions, end with measurable results."},
+    {l:3,q:"You disagree with your manager's decision. What do you do?",k:[["respect","listen"],["data","evidence","fact"],["private","one-on-one","one on one","discuss"],["commit","support","disagree and commit"],["alternative","suggest","propose"]],hint:"Respectful, evidence-based, then commit."},
+    {l:3,q:"Where do you see yourself in five years, and how will you get there?",k:[["goal","aim"],["skill","learn","certif","upskill"],["role","lead","senior","growth"],["plan","step","milestone"],["company","contribute","value"]],hint:"Show ambition with a concrete path."}
+  ]
+};
+const LEVELS = ["", "Easy", "Medium", "Hard"];
+const $ = id => document.getElementById(id);
+let S = null;
+
+function norm(t){return t.toLowerCase().replace(/\s+/g," ");}
+
+// ---------- Scoring: keyword coverage 60%, depth 25%, structure 15% ----------
+function score(answer, item){
+  const t = norm(answer);
+  const words = t.split(/\s+/).filter(Boolean).length;
+  const hit = [], miss = [];
+  item.k.forEach(g => (g.some(w => t.includes(w)) ? hit : miss).push(g[0]));
+  const cov = hit.length / item.k.length;
+  const depth = Math.min(words / (item.l === 1 ? 25 : item.l === 2 ? 40 : 55), 1);
+  const sentences = (answer.match(/[.!?]+/g) || []).length + (/\b(first|then|because|for example|for instance|finally|result)\b/.test(t) ? 1 : 0);
+  const struct = Math.min(sentences / 3, 1);
+  const pct = Math.round((cov * 0.6 + depth * 0.25 + struct * 0.15) * 100);
+  return {pct, hit, miss, words};
+}
+
+// ---------- Adaptive engine ----------
+function nextLevel(cur, pct, streak){
+  if (pct >= 70) return Math.min(cur + 1, 3);
+  if (pct < 40) return Math.max(cur - 1, 1);
+  return streak >= 2 ? Math.min(cur + 1, 3) : cur; // steady mid scores nudge upward
+}
+function pickQuestion(){
+  const pool = BANK[S.track].filter(x => x.l === S.level && !S.used.has(x.q));
+  const fallback = BANK[S.track].filter(x => !S.used.has(x.q))
+    .sort((a,b) => Math.abs(a.l - S.level) - Math.abs(b.l - S.level));
+  const list = pool.length ? pool : fallback;
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+function add(who, text, extra){
+  const d = document.createElement("div");
+  d.className = "msg " + who;
+  d.textContent = text;
+  if (extra){ const f = document.createElement("div"); f.className = "fb"; f.textContent = extra; d.appendChild(f); }
+  $("log").appendChild(d);
+  $("log").scrollTop = $("log").scrollHeight;
+}
+
+function ask(){
+  S.cur = pickQuestion();
+  S.used.add(S.cur.q);
+  $("qn").textContent = S.n + 1;
+  $("lvl").textContent = LEVELS[S.level];
+  $("fill").style.width = (S.n / S.total * 100) + "%";
+  add("bot", "[" + LEVELS[S.cur.l] + "] " + S.cur.q);
+  $("ans").focus();
+}
+
+function start(){
+  const total = +$("count").value;
+  S = {track:$("track").value, total, n:0, level:1, used:new Set(), history:[], streak:0, hinted:false};
+  $("log").innerHTML = "";
+  $("qt").textContent = total;
+  $("setup").classList.add("hidden");
+  $("report").classList.add("hidden");
+  $("chat").classList.remove("hidden");
+  add("bot", "Hi, I'm your interview bot. We'll start at Easy and I'll adjust to your answers. Ready? Here's question 1.");
+  ask();
+}
+
+function submit(){
+  const a = $("ans").value.trim();
+  if (!a) return;
+  if (a.split(/\s+/).length < 3){ add("bot", "That's a bit short. Give me at least a full sentence so I can assess it."); return; }
+  $("ans").value = "";
+  add("me", a);
+  let r = score(a, S.cur);
+  if (S.hinted) r.pct = Math.max(0, r.pct - 10);
+  S.streak = (r.pct >= 40 && r.pct < 70) ? S.streak + 1 : 0;
+  const old = S.level;
+  S.level = nextLevel(S.cur.l, r.pct, S.streak);
+  if (S.level !== old) S.streak = 0;
+  S.history.push({q:S.cur.q, l:S.cur.l, pct:r.pct, hit:r.hit, miss:r.miss, hinted:S.hinted});
+  S.hinted = false;
+  S.n++;
+
+  const verdict = r.pct >= 70 ? "Strong answer." : r.pct >= 40 ? "Decent, but there's room to go deeper." : "This needs more detail.";
+  let fb = "Score: " + r.pct + "%. ";
+  if (r.miss.length) fb += "Consider mentioning: " + r.miss.slice(0,3).join(", ") + ". ";
+  const move = S.level > old ? "Moving up to " + LEVELS[S.level] + "." : S.level < old ? "Let's ease to " + LEVELS[S.level] + " and build back up." : "Staying at " + LEVELS[S.level] + ".";
+  add("bot", verdict + " " + move, fb);
+  $("fill").style.width = (S.n / S.total * 100) + "%";
+
+  if (S.n >= S.total) { setTimeout(finish, 700); return; }
+  setTimeout(ask, 600);
+}
+
+function finish(){
+  $("chat").classList.add("hidden");
+  const h = S.history;
+  if (!h.length){ $("setup").classList.remove("hidden"); return; }
+  const avg = Math.round(h.reduce((s,x) => s + x.pct, 0) / h.length);
+  const weighted = Math.round(h.reduce((s,x) => s + x.pct * x.l, 0) / h.reduce((s,x) => s + x.l, 0));
+  const peak = Math.max(...h.map(x => x.l));
+  const grade = weighted >= 75 ? "Interview ready" : weighted >= 55 ? "Almost there" : weighted >= 35 ? "Needs practice" : "Start with the basics";
+  const missed = {};
+  h.forEach(x => x.miss.forEach(m => missed[m] = (missed[m]||0) + 1));
+  const top = Object.keys(missed).slice(0,6);
+  const R = $("report");
+  R.innerHTML = "<h2 style='margin-top:0;font-family:Georgia,serif'>Your interview report</h2>" +
+    "<div class='stats'><div class='stat'><b>" + weighted + "%</b>Difficulty-weighted score</div>" +
+    "<div class='stat'><b>" + avg + "%</b>Plain average</div>" +
+    "<div class='stat'><b>" + LEVELS[peak] + "</b>Highest level reached</div></div>" +
+    "<p><strong>" + grade + ".</strong> " + (top.length ? "Topics to revisit: " + top.join(", ") + "." : "You covered the key points well.") + "</p>" +
+    "<div class='wide'><table><thead><tr><th>#</th><th>Question</th><th>Level</th><th>Score</th></tr></thead><tbody>" +
+    h.map((x,i) => "<tr><td>" + (i+1) + "</td><td></td><td>" + LEVELS[x.l] + "</td><td>" + x.pct + "%" + (x.hinted ? " <span class='tag'>(hint used)</span>" : "") + "</td></tr>").join("") +
+    "</tbody></table></div><div class='row'><button id='again'>Try again</button><button class='ghost' id='home'>Change track</button></div>";
+  R.querySelectorAll("tbody tr").forEach((tr,i) => tr.children[1].textContent = h[i].q);
+  R.classList.remove("hidden");
+  $("again").onclick = start;
+  $("home").onclick = () => { R.classList.add("hidden"); $("setup").classList.remove("hidden"); };
+}
+
+$("start").onclick = start;
+$("send").onclick = submit;
+$("ans").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey){ e.preventDefault(); submit(); } });
+$("hint").onclick = () => { if (S && S.cur){ S.hinted = true; add("bot", "Hint: " + S.cur.hint + " (using a hint costs 10 points)"); } };
+$("quit").onclick = finish;
+</script>
+</body>
+</html>
